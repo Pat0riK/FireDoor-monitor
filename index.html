@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ThingSpeak 數據顯示</title>
+    <style>
+        /* 基本 CSS 樣式 */
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .data-point {
+            margin-bottom: 15px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #e9e9e9;
+        }
+        .data-point strong {
+            display: inline-block;
+            min-width: 120px; /* 讓標籤對齊 */
+        }
+        #chartContainer {
+            margin-top: 30px;
+            max-width: 100%; /* 讓圖表容器響應式 */
+            height: 400px;   /* 給圖表一個高度 */
+        }
+        /* 手機螢幕樣式 */
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            .container {
+                padding: 15px;
+            }
+            .data-point strong {
+                display: block; /* 在小螢幕上標籤換行 */
+                min-width: auto;
+                margin-bottom: 5px;
+            }
+            #chartContainer {
+                height: 300px; /* 小螢幕圖表高度 */
+            }
+        }
+    </style>
+    <!-- 引入 Chart.js 函式庫 (用於繪製圖表) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- 引入 Chart.js 的日期適配器和 date-fns 函式庫 (如果需要時間軸) -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>ThingSpeak 數據</h1>
+
+        <h2>最新數據點</h2>
+        <div id="latestData">
+            <p>正在載入數據...</p>
+        </div>
+
+        <h2>歷史數據圖表</h2>
+        <div id="chartContainer">
+            <canvas id="myChart"></canvas>
+        </div>
+
+        <p><small>上次更新時間: <span id="lastUpdated">--</span></small></p>
+    </div>
+
+    <script>
+        // --- 設定 ---
+        const channelID = '2943063'; // 替換成你的 Channel ID
+        const readAPIKey = 'WM63EJI1BDVIYNMH'; // 如果你的頻道是私有的，替換成你的 Read API Key，否則留空 ''
+        const resultsCount = 60; // 你想獲取的歷史數據點數量 (用於圖表)
+        const updateInterval = 20000; // 自動更新間隔 (毫秒)，例如 30000 = 30 秒
+
+        // --- DOM 元素 ---
+        const latestDataElement = document.getElementById('latestData');
+        const lastUpdatedElement = document.getElementById('lastUpdated');
+        const ctx = document.getElementById('myChart').getContext('2d');
+        let myChart = null; // 用於存放 Chart.js 實例
+
+        // --- ThingSpeak API URL ---
+        // 獲取最新數據點 (只需 1 個結果)
+        const latestDataUrl = `https://api.thingspeak.com/channels/${channelID}/feeds.json?results=1${readAPIKey ? '&api_key=' + readAPIKey : ''}`;
+        // 獲取多個歷史數據點 (用於圖表)
+        const historyDataUrl = `https://api.thingspeak.com/channels/${channelID}/feeds.json?results=${resultsCount}${readAPIKey ? '&api_key=' + readAPIKey : ''}`;
+
+        // --- 函數：獲取並顯示數據 ---
+        async function fetchData() {
+            console.log("正在獲取數據...");
+            try {
+                // 同時發起兩個請求 (一個獲取最新，一個獲取歷史)
+                const [latestResponse, historyResponse] = await Promise.all([
+                    fetch(latestDataUrl),
+                    fetch(historyDataUrl)
+                ]);
+
+                // 檢查響應是否成功
+                if (!latestResponse.ok || !historyResponse.ok) {
+                    throw new Error(`HTTP 錯誤! 最新: ${latestResponse.status}, 歷史: ${historyResponse.status}`);
+                }
+
+                // 解析 JSON 數據
+                const latestData = await latestResponse.json();
+                const historyData = await historyResponse.json();
+
+                console.log("最新數據:", latestData);
+                console.log("歷史數據:", historyData);
+
+                // --- 更新最新數據顯示 ---
+                if (latestData.feeds && latestData.feeds.length > 0) {
+                    const latestFeed = latestData.feeds[0];
+                    let htmlContent = '';
+                    // 假設你有 field1, field2, field3...
+                    if (latestFeed.field1 !== null) htmlContent += `<div class="data-point"><strong>門開啟的角度:</strong> ${latestFeed.field1}</div>`;
+                    if (latestFeed.field2 !== null) htmlContent += `<div class="data-point"><strong>溫度:</strong> ${latestFeed.field2}</div>`;
+                    if (latestFeed.field3 !== null) htmlContent += `<div class="data-point"><strong>濕度:</strong> ${latestFeed.field3}</div>`;
+                    // ... 根據你的頻道欄位添加更多
+                    htmlContent += `<div class="data-point"><strong>記錄時間:</strong> ${new Date(latestFeed.created_at).toLocaleString()}</div>`;
+                    latestDataElement.innerHTML = htmlContent;
+                } else {
+                    latestDataElement.innerHTML = '<p>未能獲取最新數據。</p>';
+                }
+
+                // --- 更新圖表 ---
+                if (historyData.feeds && historyData.feeds.length > 0) {
+                    updateChart(historyData.feeds, historyData.channel);
+                } else {
+                     console.log("沒有足夠的歷史數據來繪製圖表。");
+                     // 可以選擇清除圖表或顯示提示
+                     if (myChart) {
+                         myChart.destroy(); // 清除舊圖表
+                         myChart = null;
+                     }
+                     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); // 清除畫布
+                     ctx.fillText("沒有足夠的歷史數據。", 10, 50);
+                }
+
+                // 更新最後更新時間
+                lastUpdatedElement.textContent = new Date().toLocaleString();
+
+            } catch (error) {
+                console.error("獲取 ThingSpeak 數據時出錯:", error);
+                latestDataElement.innerHTML = `<p style="color: red;">錯誤: ${error.message}</p>`;
+                // 可以選擇在這裡也清除圖表或顯示錯誤
+                 if (myChart) {
+                     myChart.destroy();
+                     myChart = null;
+                 }
+                 ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                 ctx.fillText(`錯誤: ${error.message}`, 10, 50);
+            }
+
+            const apiUrl = `https://api.thingspeak.com/channels/${channelId}/feeds.json?api_key=${readApiKey}&results=100`; // 假設請求100筆
+
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                // ... 處理數據並更新圖表 (呼叫 updateChart) ...
+                updateChart(data.feeds);
+            } catch (error) {
+                console.error("無法獲取 ThingSpeak 資料:", error);
+                // 可以在頁面上顯示錯誤訊息
+            }
+        }
+
+        // --- 函數：更新圖表 ---
+        function updateChart(feeds, channelInfo) {
+            // 提取數據用於圖表
+            const labels = feeds.map(feed => new Date(feed.created_at)); // X 軸：時間
+            const datasets = [];
+
+            // 檢查並添加每個欄位的數據集
+            // 你需要知道你的哪些欄位包含你想繪製的數值數據
+            const fieldMapping = {
+                field1: channelInfo.field1 || 'Field 1', // 使用頻道設定的名稱，否則用預設
+                field2: channelInfo.field2 || 'Field 2',
+                field3: channelInfo.field3 || 'Field 3',
+                // ... 添加更多欄位
+            };
+
+            const colors = ['rgba(75, 192, 192, 1)', 'rgba(255, 99, 132, 1)', 'rgba(54, 162, 235, 1)', 'rgba(255, 206, 86, 1)', 'rgba(153, 102, 255, 1)'];
+            let colorIndex = 0;
+
+            for (const fieldKey in fieldMapping) {
+                // 檢查該欄位的第一個數據點是否存在且為數字
+                if (feeds.length > 0 && feeds[0][fieldKey] !== null && !isNaN(parseFloat(feeds[0][fieldKey]))) {
+                    datasets.push({
+                        label: fieldMapping[fieldKey], // 圖例標籤
+                        data: feeds.map(feed => parseFloat(feed[fieldKey])), // Y 軸數據
+                        borderColor: colors[colorIndex % colors.length],
+                        backgroundColor: colors[colorIndex % colors.length].replace('1)', '0.2)'), // 半透明填充色
+                        tension: 0.1, // 線條平滑度
+                        fill: false // 是否填充線條下方區域
+                    });
+                    colorIndex++;
+                }
+            }
+
+
+            // 如果已經存在圖表，先銷毀它
+            if (myChart) {
+                myChart.destroy();
+            }
+
+            // 建立新圖表
+            myChart = new Chart(ctx, {
+                type: 'line', // 圖表類型 (line, bar, etc.)
+                data: {
+                    labels: labels, // X 軸標籤 (時間)
+                    datasets: datasets // Y 軸數據集
+                },
+                options: {
+                    responsive: true, // 響應式設計
+                    maintainAspectRatio: false, // 允許圖表改變長寬比以填充容器
+                    scales: {
+                        x: {
+                            type: 'time', // X 軸類型為時間
+                            time: {
+                                unit: 'minute', // 時間單位 (可以根據數據範圍自動調整，或指定 'day', 'hour' 等)
+                                tooltipFormat: 'yyyy-MM-dd HH:mm:ss', // 提示框中的時間格式
+                                displayFormats: { // X 軸標籤顯示格式
+                                    minute: 'HH:mm',
+                                    hour: 'MM-dd HH:mm',
+                                    day: 'yyyy-MM-dd'
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: '時間'
+                            }
+                        },
+                        y: {
+                            beginAtZero: false, // Y 軸不一定從 0 開始
+                            title: {
+                                display: true,
+                                text: '數值'
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                        legend: {
+                            position: 'top', // 圖例位置
+                        }
+                    },
+                    interaction: { // 交互設定
+                         mode: 'nearest',
+                         axis: 'x',
+                         intersect: false
+                     }
+                }
+            });
+        }
+
+        // --- 初始化和自動更新 ---
+        // 頁面載入後立即獲取一次數據
+        fetchData();
+
+        // 設定定時器，每隔一段時間自動獲取新數據
+        setInterval(fetchData, updateInterval);
+        
+    </script>
+</body>
+</html>
