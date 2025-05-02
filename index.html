@@ -96,7 +96,7 @@
 
         // --- 函數：獲取並顯示數據 ---
         async function fetchData() {
-            console.log("正在獲取數據...");
+            console.log("Getting data...");
             try {
                 // 同時發起兩個請求 (一個獲取最新，一個獲取歷史)
                 const [latestResponse, historyResponse] = await Promise.all([
@@ -106,15 +106,15 @@
 
                 // 檢查響應是否成功
                 if (!latestResponse.ok || !historyResponse.ok) {
-                    throw new Error(`HTTP 錯誤! 最新: ${latestResponse.status}, 歷史: ${historyResponse.status}`);
+                    throw new Error(`HTTP error! Up to date: ${latestResponse.status}, History: ${historyResponse.status}`);
                 }
 
                 // 解析 JSON 數據
                 const latestData = await latestResponse.json();
                 const historyData = await historyResponse.json();
 
-                console.log("最新數據:", latestData);
-                console.log("歷史數據:", historyData);
+                console.log("Latest data:", latestData);
+                console.log("Historical data:", historyData);
 
                 // --- 更新最新數據顯示 ---
                 if (latestData.feeds && latestData.feeds.length > 0) {
@@ -125,32 +125,32 @@
                     if (latestFeed.field2 !== null) htmlContent += `<div class="data-point"><strong>Temperature:</strong> ${latestFeed.field2}</div>`;
                     if (latestFeed.field3 !== null) htmlContent += `<div class="data-point"><strong>Humidity:</strong> ${latestFeed.field3}</div>`;
                     // ... 根據你的頻道欄位添加更多
-                    htmlContent += `<div class="data-point"><strong>記錄時間:</strong> ${new Date(latestFeed.created_at).toLocaleString()}</div>`;
+                    htmlContent += `<div class="data-point"><strong>Recording time:</strong> ${new Date(latestFeed.created_at).toLocaleString()}</div>`;
                     latestDataElement.innerHTML = htmlContent;
                 } else {
-                    latestDataElement.innerHTML = '<p>未能獲取最新數據。</p>';
+                    latestDataElement.innerHTML = '<p>Failed to get the latest data.</p>';
                 }
 
                 // --- 更新圖表 ---
                 if (historyData.feeds && historyData.feeds.length > 0) {
                     updateChart(historyData.feeds, historyData.channel);
                 } else {
-                     console.log("沒有足夠的歷史數據來繪製圖表。");
+                     console.log("Not enough historical data to plot the chart.");
                      // 可以選擇清除圖表或顯示提示
                      if (myChart) {
                          myChart.destroy(); // 清除舊圖表
                          myChart = null;
                      }
                      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); // 清除畫布
-                     ctx.fillText("沒有足夠的歷史數據。", 10, 50);
+                     ctx.fillText("Not enough historical data.", 10, 50);
                 }
 
                 // 更新最後更新時間
                 lastUpdatedElement.textContent = new Date().toLocaleString();
 
             } catch (error) {
-                console.error("獲取 ThingSpeak 數據時出錯:", error);
-                latestDataElement.innerHTML = `<p style="color: red;">錯誤: ${error.message}</p>`;
+                console.error("Error while getting ThingSpeak data:", error);
+                latestDataElement.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
                 // 可以選擇在這裡也清除圖表或顯示錯誤
                  if (myChart) {
                      myChart.destroy();
@@ -171,7 +171,7 @@
                 // ... 處理數據並更新圖表 (呼叫 updateChart) ...
                 updateChart(data.feeds);
             } catch (error) {
-                console.error("無法獲取 ThingSpeak 資料:", error);
+                console.error("Unable to retrieve ThingSpeak data:", error);
                 // 可以在頁面上顯示錯誤訊息
             }
         }
@@ -239,14 +239,14 @@
                             },
                             title: {
                                 display: true,
-                                text: '時間'
+                                text: 'Time'
                             }
                         },
                         y: {
                             beginAtZero: false, // Y 軸不一定從 0 開始
                             title: {
                                 display: true,
-                                text: '數值'
+                                text: 'Value'
                             }
                         }
                     },
