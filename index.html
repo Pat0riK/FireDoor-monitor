@@ -60,19 +60,19 @@
 </head>
 <body>
     <div class="container">
-        <h1>Fire Door 數據</h1>
+        <h1>Fire Door -Data</h1>
 
-        <h2>最新數據點</h2>
+        <h2>Latest data points</h2>
         <div id="latestData">
-            <p>正在載入數據...</p>
+            <p>Loading data...</p>
         </div>
 
-        <h2>歷史數據圖表</h2>
+        <h2>Historical data chart</h2>
         <div id="chartContainer">
             <canvas id="myChart"></canvas>
         </div>
 
-        <p><small>上次更新時間: <span id="lastUpdated">--</span></small></p>
+        <p><small>Last updated: <span id="lastUpdated">--</span></small></p>
     </div>
 
     <script>
@@ -121,9 +121,9 @@
                     const latestFeed = latestData.feeds[0];
                     let htmlContent = '';
                     // 假設你有 field1, field2, field3...
-                    if (latestFeed.field1 !== null) htmlContent += `<div class="data-point"><strong>門開啟的角度:</strong> ${latestFeed.field1}</div>`;
-                    if (latestFeed.field2 !== null) htmlContent += `<div class="data-point"><strong>溫度:</strong> ${latestFeed.field2}</div>`;
-                    if (latestFeed.field3 !== null) htmlContent += `<div class="data-point"><strong>濕度:</strong> ${latestFeed.field3}</div>`;
+                    if (latestFeed.field1 !== null) htmlContent += `<div class="data-point"><strong>Door open angle:</strong> ${latestFeed.field1}</div>`;
+                    if (latestFeed.field2 !== null) htmlContent += `<div class="data-point"><strong>Temperature:</strong> ${latestFeed.field2}</div>`;
+                    if (latestFeed.field3 !== null) htmlContent += `<div class="data-point"><strong>Humidity:</strong> ${latestFeed.field3}</div>`;
                     // ... 根據你的頻道欄位添加更多
                     htmlContent += `<div class="data-point"><strong>記錄時間:</strong> ${new Date(latestFeed.created_at).toLocaleString()}</div>`;
                     latestDataElement.innerHTML = htmlContent;
